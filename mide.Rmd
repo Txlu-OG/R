@@ -1,0 +1,95 @@
+---
+title: "Untitled"
+author: "Adedamola Ogundipe (R)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+### LOAD LIBRARY AND DATASET
+```{r Library and Dataset}
+library(readr)
+data <- read_csv("/Users/m1/Desktop/OGUNDIPE/PAU/Notes/Datasets/Diabetes Dataset.csv")
+```
+
+## DATA CLEANING AND PREPROCESSING
+## Summary of Data, Data Manipulation and cleaning
+Inspection of dataset for 
+-Find missing values
+-Find outliers
+-Other inconsistencies
+
+## Specifications and Quick glimpse of data
+```{r quick glance of data}
+library(dplyr)
+spec(data)
+glimpse(data)
+```
+
+## Find Missing Values
+```{r finiding missing data}
+sum(is.na(data))
+```
+
+## Detect and remove Outliers in Major Features by Filtering
+
+```{r Outlier detection and removal}
+par(mfrow = c(1, 4))
+boxplot(data$BMI, main="BMI Boxplot")
+boxplot(data$SBP, main="SBP Boxplot")
+boxplot(data$DBP, main="DBP Boxplot")
+boxplot(data$Chol, main="Chol Boxplot")
+data_updated <- data[data$BMI < 50 & data$BMI > 15 & data$SBP < 240 & data$DBP > 50 & data$Chol < 10, ]
+par(mfrow = c(1, 4))
+boxplot(data_updated$BMI, main="BMI Boxplot")
+boxplot(data_updated$SBP, main="SBP Boxplot")
+boxplot(data_updated$DBP, main="DBP Boxplot")
+boxplot(data_updated$Chol, main="Chol Boxplot")
+```
+
+## Feature Engineering
+
+```{r feature engineering}
+data_updated$MAP <- with(data_updated, DBP + (1/3) * (SBP - DBP))
+data_updated$BMI_Category <- cut(data_updated$BMI, 
+                               breaks=c(-Inf, 18.5, 25, 30, Inf), 
+                               labels=c("Underweight", "Normal", "Overweight", "Obese"))
+table(data_updated$BMI_Category)
+```
+
+## Cross Check Data
+```{r Another quick glance at data post-processing}
+str(data_updated)
+```
+
+# Visualizations
+```{r visualizations}
+library(ggplot2)
+ggplot(data_updated, aes(x=BMI)) + geom_histogram(binwidth=1, fill="blue", color="black") + 
+  ggtitle("BMI Distribution")
+ggplot(data_updated, aes(x=Age)) + 
+  geom_histogram(binwidth=1, fill="blue", color="black") + 
+  ggtitle("Age Distribution")
+ggplot(data_updated, aes(x=SBP)) + 
+  geom_histogram(binwidth=1, fill="green", color="black") + 
+  ggtitle("Systolic Blood Pressure (SBP) Distribution")
+ggplot(data_updated, aes(x=DBP)) + 
+  geom_histogram(binwidth=1, fill="red", color="black") + 
+  ggtitle("Diastolic Blood Pressure (DBP) Distribution")
+
+ggplot(data_updated, aes(x=Chol)) + 
+  geom_histogram(binwidth=1, fill="purple", color="black") + 
+  ggtitle("Cholesterol Distribution")
+ggplot(data_updated, aes(x=Age, y=BMI, color=factor(Diabetes))) + 
+  geom_point() + 
+  ggtitle("BMI vs. Age by Diabetes Status")
+ggplot(data_updated, aes(x = as.factor(Diabetes), y = Age)) + 
+  geom_boxplot(fill = "cyan", color = "black") +
+  theme_minimal() +
+  ggtitle("Age Distribution by Diabetes Status")
+```
+
+## Converting Target Variable from numerical to factor
+
+```{r conversion of target variable to factor }
+data_updated$Diabetes <- as.factor(data_updated$Diabetes)
+levels(data_updated$Diabetes) <- c("0", "1")

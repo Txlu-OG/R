@@ -1,0 +1,269 @@
+---
+title: "DRPM Using XGBoost"
+author: "Adedamola Ogundipe (R)"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+# DIABETES RISK PREDICTION MODEL
+## Building a Risk Prediction Model for Type 2 Diabetes Using Machine Learning Techniques on R
+### CONTEXT
+Diabetes is one of the most prevalent chronic diseases in the Africa and the world at large, impacting millions of the world population each year and exerting a significant financial burden on global economy. Diabetes is a dangerous chronic illness that impairs an individual's capacity to control blood glucose levels. It can shorten life expectancy and lower quality of life.
+
+Complications of Diabetes include heart disease, Retinopathy (causing vision loss), Diabetic foot (can lead to amputation), and Nephropathy. Diabetes cannot be cured, but many individuals can lessen its negative effects by adopting healthy eating habits, exercising, weight loss, and receiving medical care especially if detected early. In public health management and policy making, predictive models for diabetes risk are valuable resources since early diagnosis can result in lifestyle modifications and more successful treatment.
+
+The Center for Disease Control and Prevention (CDC) estimates that 1 in 5 diabetics, and roughly 8 in 10 prediabetics are unaware of their risk. While there are different types of diabetes, type II diabetes is the most common form and its prevalence varies by age, education, income, location, race, and other social determinants of health. Much of the burden of the disease falls on those of lower socioeconomic status as well. 
+
+### CONTENT
+This dataset is the output of a Chinese research study conducted in 2016. It includes 1304 samples of patients who tested positive for diabetes, and the age of the participants ranges from 21 to 99 years old. The dataset was collected according to the indicators and standards of the World Health Organization. For this project, a csv of the dataset available on Kaggle  was used.
+
+### AIM
+Develop a predictive model to identify individuals at high risk of developing type II diabetes.
+
+### OBJECTIVES
+1. Accurately predict the likelihood of diabetes onset, enabling early intervention.
+2. Highlight the most significant risk factors for diabetes.
+3. Analyze how these social determinants of health influence diabetes risk. 
+4. Use the insights gained from analysis and predictive modeling to inform public health strategies and policy decisions.
+
+### RESEARCH QUESTIONS
+Can survey questions from the dataset provide accurate predictions of whether an individual has diabetes?
+What risk factors are most predictive of diabetes risk?
+Can a subset of the risk factors to accurately predict whether an individual has diabetes?
+Can a short form of questions be created using feature selection to accurately predict if someone might have diabetes or is at high risk of diabetes?
+
+### FEATURES
+Age
+Gender
+BMI
+SBP (Systolic Blood Pressure)
+DBP (Diastolic Blood Pressure)
+FPG (Fasting Plasma Glucose)
+FFPG (Final Fasting Plasma Glucose)
+Cholesterol
+Triglyceride
+HDL (High-Density Lipoprotein)
+LDL (Low-Density Lipoprotein)
+ALT (Alanine Aminotransferase)
+BUN (Blood urea nitrogen)
+CCR (Creatinine Clearance)
+Smoking Status: (1: Current Smoker, 2: Ever Smoker, 3: Never Smoker)
+Drinking Status: (1: Current Drinker, 2: Ever Drinker, 3: Never Drinker)
+Family History of Diabetes: (1: Yes, 0: No)
+Diabetes
+
+## INSTALL PACKAGES
+readr - for reading csv file
+dplyr - for data manipulation
+DMwR - To balance Dataset
+randomForest - Model Building
+caret - for Model Evaluation
+```{r install packages}
+install.packages("readr")
+install.packages("dplyr")
+install.packages("DMwR")
+install.packages("randomForest")
+install.packages("caret")
+install.packages("pROC")
+```
+
+### LOAD LIBRARY AND DATASET
+```{r Library and Dataset}
+library(readr)
+data <- read_csv("/Users/m1/Desktop/OGUNDIPE/PAU/Notes/Datasets/Diabetes Dataset.csv")
+```
+
+## DATA CLEANING AND PREPROCESSING
+## Summary of Data, Data Manipulation and cleaning
+Inspection of dataset for 
+-Find missing values
+-Find outliers
+-Other inconsistencies
+
+## Specifications and Quick glimpse of data
+To get an overview of the structure and contents of a dataset.
+```{r quick glance of data}
+library(dplyr)
+spec(data)
+glimpse(data)
+```
+
+## Find Missing Values
+Using the Hmisc package to describe data to view missing values and get other descriptions.
+
+```{r finiding missing data}
+install.packages("Hmisc")
+library(Hmisc)
+describe(data)
+```
+
+## Detect and remove Outliers in Major Features by Filtering
+This was done subjectively based on clinical features and realistically possible known ranges based on previous documented patient presentations and texts.
+
+```{r Outlier detection and removal}
+par(mfrow = c(1, 4))
+boxplot(data$BMI, main="BMI Boxplot")
+boxplot(data$SBP, main="SBP Boxplot")
+boxplot(data$DBP, main="DBP Boxplot")
+boxplot(data$Chol, main="Chol Boxplot")
+data_updated <- data[data$BMI < 50 & data$BMI > 15 & data$SBP < 240 & data$DBP > 50 & data$Chol < 10, ]
+par(mfrow = c(1, 4))
+boxplot(data_updated$BMI, main="BMI Boxplot")
+boxplot(data_updated$SBP, main="SBP Boxplot")
+boxplot(data_updated$DBP, main="DBP Boxplot")
+boxplot(data_updated$Chol, main="Chol Boxplot")
+```
+
+## Feature Engineering
+### Mean Arterial Pressure (MAP) and BMI Categorization
+
+MAP is the average arterial pressure throughout one cardiac cycle, systole, and diastole. In individuals with diabetes this is significant due to the vascular complications associated with this condition. Diabetes can lead to changes in blood vessels, including arteriosclerosis (hardening of the arteries) and the development of atherosclerosis (formation of plaques within the arterial walls), which can alter blood pressure levels and affect organ perfusion.monitoring and managing MAP in individuals with diabetes is essential for reducing the risk of cardiovascular complications, preventing target organ damage, managing comorbid hypertension, and detecting autonomic dysfunction. Effective blood pressure control, as part of a comprehensive diabetes management plan, can significantly improve outcomes and quality of life for people with diabetes.
+
+BMI Categorization is necessary to classify the dataset and for ease of understanding of insights and visualizations.
+
+```{r feature engineering}
+data_updated$MAP <- with(data_updated, DBP + (1/3) * (SBP - DBP))
+data_updated$BMI_Category <- cut(data_updated$BMI, 
+                               breaks=c(-Inf, 18.5, 25, 30, Inf), 
+                               labels=c("Underweight", "Normal", "Overweight", "Obese"))
+table(data_updated$BMI_Category)
+```
+
+## Cross Check Data
+Using the Str function of the dplyr library to have another quick look at the updated data.
+
+```{r Another quick glance at data post-processing}
+str(data_updated)
+```
+
+# Insights and Visualizations
+Using ggplot function of the ggplot2 library to create visualisations and generate insights.
+
+```{r}
+install.packages("plotly")
+library(plotly)
+```
+
+```{r visualizations}
+library(ggplot2)
+ggplot(data_updated, aes(x = BMI, fill = factor(Diabetes))) + 
+  geom_histogram(binwidth = 1, color = "black") + 
+  scale_fill_manual(values = c("0" = "blue", "1" = "red"), name = "Diabetes") +
+  ggtitle("BMI Distribution") +
+  labs(x = "BMI", y = "Frequency") +
+  theme_minimal()
+ggplot(data_updated, aes(x = BMI_Category, fill = factor(Diabetes))) +
+  geom_bar(position = "dodge", stat = "count") +
+  labs(title = "BMI Category Count", x = "BMI Category", y = "Count") +
+  scale_fill_manual(values = c("0" = "blue", "1" = "red")) + 
+  theme_minimal()
+ggplot(data_updated, aes(x = Age, fill = factor(Diabetes))) + 
+  geom_histogram(binwidth = 1, color = "black") + 
+  scale_fill_manual(values = c("0" = "blue", "1" = "red"), name = "Diabetes") +
+  ggtitle("Age Distribution") +
+  labs(x = "Age", y = "Frequency") +
+  theme_minimal()
+ggplot(data_updated, aes(x = SBP)) + 
+  geom_histogram(binwidth = 10, boundary = 10, fill = "green", color = "black") + 
+  ggtitle("Systolic Blood Pressure (SBP) Distribution") +
+  labs(x = "SBP Range", y = "Frequency") +
+  theme_minimal()
+ggplot(data_updated, aes(x=DBP)) + 
+  geom_histogram(binwidth=10, boundary = 10, fill="red", color="black") + 
+  ggtitle("Diastolic Blood Pressure (DBP) Distribution")
+labs(x = "DBP Range", y = "Frequency") +
+  theme_minimal()
+ggplot(data_updated, aes(x = MAP, fill = factor(Diabetes))) + 
+  geom_histogram(binwidth = 1, boundary = 0, color = "black") + 
+  scale_fill_manual(values = c("0" = "beige", "1" = "red"), name = "Diabetes") +
+  ggtitle("Mean Arterial Pressure (MAP) Distribution") +
+  labs(x = "MAP Range", y = "Frequency") +
+  theme_minimal()
+ggplot(data_updated, aes(x = Chol, fill = factor(Diabetes))) + 
+  geom_histogram(binwidth = 1, color = "black") + 
+  scale_fill_manual(values = c("0" = "purple", "1" = "orange"), name = "Diabetes") +
+  ggtitle("Cholesterol Distribution") +
+  labs(x = "Cholesterol Range", y = "Frequency") +
+  theme_minimal()
+interactive_plot <- ggplot(data_updated, aes(x=Age, y=BMI, color=factor(Diabetes))) + 
+  geom_point() + 
+  ggtitle("BMI vs. Age by Diabetes Status")
+ggplotly(interactive_plot)
+ggplot(data_updated, aes(x=Age, y=BMI_Category, color=factor(Diabetes))) + 
+  geom_point() + 
+  ggtitle("Diabetes by BMI Class and Age Distribution")
+ggplot(data_updated, aes(x = as.factor(Diabetes), y = Age)) + 
+  geom_boxplot(fill = "cyan", color = "black") +
+  theme_minimal() +
+  ggtitle("Age Distribution by Diabetes Status")
+```
+
+## Converting Target Variable from numerical to factor
+Diabetes column indicates whether an individual has diabetes ( 0 and 1 ), This column is essentially categorical, despite being represented with numeric codes. treating numeric representations of categories, especially for something like a diabetes status indicator, as double-precision floating-point numbers might not be the most appropriate.To adjust the specification for the Diabetes column, it should be treated as a factor (categorical variable). To improve clarity in  data and ensure that statistical analyses and visualizations dependent on categorical vs. numeric distinctions are correctly performed.This would also help in balancing the dataset using the SMOTE approcah.
+
+```{r conversion of target variable to factor }
+data_updated$Diabetes <- as.factor(data_updated$Diabetes)
+levels(data_updated$Diabetes) <- c("0", "1")
+```
+
+## Cross Check Data
+Using the Str function of the dplyr library to have another quick look at the updated data.
+
+```{r}
+str(data_updated)
+```
+
+## MACHINE LEARNING MODELLING 
+
+```{r}
+library(caret)
+# Load the randomForest package
+library(randomForest)
+
+# Split the data into training and testing sets
+set.seed(123) # For reproducibility
+trainIndex <- createDataPartition(data_updated$Diabetes, p = .8, 
+                                  list = FALSE, 
+                                  times = 1)
+diabetes_train <- data_updated[trainIndex, ]
+diabetes_test <- data_updated[-trainIndex, ]
+
+# Train the Random Forest model
+rf_model <- randomForest(Diabetes ~ ., data = diabetes_train, ntree = 500, mtry = 3)
+
+# Print the model summary
+print(rf_model)
+
+# Predict on the test data
+predictions <- predict(rf_model, diabetes_test)
+
+# Evaluate the model performance
+confusionMatrix <- table(diabetes_test$Diabetes, predictions)
+print(confusionMatrix)
+
+# Calculate other performance metrics as needed, such as Accuracy, Precision, Recall, etc.
+
+accuracy <- sum(diag(confusionMatrix)) / sum(confusionMatrix)
+print(paste("Accuracy:", accuracy))
+
+library(pROC)
+roc_response <- roc(diabetes_test$Diabetes, as.numeric(predictions))
+plot(roc_response)
+auc(roc_response)
+```
+
+# Plot feature importance
+
+```{r}
+install.packages("rpart")
+```
+
+```{r}
+library(rpart)
+DRP_model <- rpart(Diabetes ~ ., data = data_updated)
+DRP_model$variable.importance
+```
+
+
+
+
